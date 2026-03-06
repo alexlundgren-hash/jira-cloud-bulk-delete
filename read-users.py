@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import requests
 from dotenv import load_dotenv
 
@@ -22,9 +23,13 @@ def fetch_and_filter_users():
         'Accept': 'application/json'
     }
     
+    # Check for --print-only flag
+    print_only = '--print-only' in sys.argv
+    
     # We'll track the cursor manually
     current_cursor = None
     account_ids = set()
+    user_info = []  # For storing name and email when using --print-only
     total_users_processed = 0
 
     print("Starting data retrieval...")
@@ -59,7 +64,11 @@ def fetch_and_filter_users():
             # Note: Atlassian Admin API uses 'displayName' in many responses
             name = user.get('displayName', user.get('name', ''))
             if NAME_PATTERN is None or re.match(NAME_PATTERN, name):
-                account_ids.add(user.get('accountId'))
+                if print_only:
+                    email = user.get('email', '')
+                    user_info.append((name, email))
+                else:
+                    account_ids.add(user.get('accountId'))
             total_users_processed += 1
 
         # Look for the next cursor in links -> next
@@ -75,11 +84,16 @@ def fetch_and_filter_users():
             break
 
     try:
-        with open(OUTPUT_FILE, 'w') as f:
-            for aid in account_ids:
-                if aid:
-                    f.write(f"{aid}\n")
-        print(f"Done! Processed {total_users_processed} total users, saved {len(account_ids)} matching Account IDs to {OUTPUT_FILE}.")
+        if print_only:
+            for name, email in user_info:
+                print(f"{name}\t{email}")
+            print(f"\nProcessed {total_users_processed} total users, printed {len(user_info)} matching users.")
+        else:
+            with open(OUTPUT_FILE, 'w') as f:
+                for aid in account_ids:
+                    if aid:
+                        f.write(f"{aid}\n")
+            print(f"Done! Processed {total_users_processed} total users, saved {len(account_ids)} matching Account IDs to {OUTPUT_FILE}.")
     except IOError as e:
         print(f"Error writing to file: {e}")
 
