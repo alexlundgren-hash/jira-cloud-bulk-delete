@@ -13,6 +13,7 @@ BASE_URL = f'https://api.atlassian.com/admin/v2/orgs/{ORG_ID}/directories/{DIR_I
 OUTPUT_FILE = 'account_ids.txt'
 NAME_PATTERN = os.getenv('NAME_PATTERN')
 DOMAINS = os.getenv('EMAIL_DOMAINS')
+GROUP_ID = os.getenv('GROUP_ID')
 
 
 def fetch_and_filter_users():
@@ -30,9 +31,16 @@ def fetch_and_filter_users():
 
     while True:
         params = {
-            'emailDomains': f'{DOMAINS}',
             'limit': 50
         }
+        
+        # Add optional emailDomains parameter
+        if DOMAINS:
+            params['emailDomains'] = DOMAINS
+        
+        # Add optional groupIds parameter
+        if GROUP_ID:
+            params['groupIds'] = GROUP_ID
         
         # If we have a cursor from the previous page, add it to params
         if current_cursor:
@@ -50,7 +58,7 @@ def fetch_and_filter_users():
         for user in users:
             # Note: Atlassian Admin API uses 'displayName' in many responses
             name = user.get('displayName', user.get('name', ''))
-            if re.match(NAME_PATTERN, name):
+            if NAME_PATTERN is None or re.match(NAME_PATTERN, name):
                 account_ids.add(user.get('accountId'))
             total_users_processed += 1
 
